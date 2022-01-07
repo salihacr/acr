@@ -17,9 +17,9 @@ namespace Acr.API.Controllers
         }
 
         [HttpPost("Get")]
-        public IActionResult Get(GetRequest request)
+        public IActionResult Get(int id)
         {
-            var result = _manager.Get(request);
+            var result = _manager.Get(id);
             return Ok(result);
         }
         [HttpPost("GetAll")]
@@ -36,7 +36,7 @@ namespace Acr.API.Controllers
         public IActionResult Create(TestJsonTable entity)
         {
             int userId = GetUserId();
-            var result = _manager.AddAndLog(entity, userId);
+            var result = _manager.Add(entity, userId);
             return Ok(result);
         }
 
@@ -44,15 +44,15 @@ namespace Acr.API.Controllers
         public IActionResult Update(TestJsonTable entity)
         {
             int userId = GetUserId();
-            var result = _manager.UpdateAndLog(entity, userId);
+            var result = _manager.Update(entity, userId);
             return Ok(result);
         }
 
         [HttpPost("Delete")]
-        public IActionResult Delete(GetRequest request)
+        public IActionResult Delete(int id)
         {
             int userId = GetUserId();
-            var result = _manager.DeleteAndLog(request, userId);
+            var result = _manager.Delete(id, userId);
             return Ok(result);
         }
     }

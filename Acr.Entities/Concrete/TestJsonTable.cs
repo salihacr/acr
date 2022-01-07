@@ -9,7 +9,7 @@ namespace Acr.Entities.Concrete
         [NotMapped]
         public TestJson ExtraObject { get; set; }
         [JsonIgnore]
-        public string JsonString { get; set; }
+        public string JsonValue { get; set; }
 
         public int ParentId { get; set; }
         public bool IsDeleted { get; set; }

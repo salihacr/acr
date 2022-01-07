@@ -17,22 +17,27 @@ namespace Acr.Business.Concrete
 {
     public class BaseManager<TEntity> : IManager<TEntity> where TEntity : BaseEntity
     {
-        private readonly IRepository<TEntity> _repository;
-        private readonly ILogRepository _logRepository;
-        private readonly IViewRepository _viewRepository;
+        protected readonly IRepository<TEntity> _repository;
+        protected readonly ILogRepository _logRepository;
+        protected readonly IViewRepository _viewRepository;
         public BaseManager(IRepository<TEntity> repository, ILogRepository logRepository)
         {
             _repository = repository;
             _logRepository = logRepository;
-            _viewRepository = new ViewRepository(new DataAccess.AppDbContext()); // örnek, değişelim
+        }
+        public BaseManager(IRepository<TEntity> repository, ILogRepository logRepository, IViewRepository viewRepository)
+        {
+            _repository = repository;
+            _logRepository = logRepository;
+            _viewRepository = viewRepository; // örnek, değişelim
         }
 
         #region Get/GetAll
-        public TaskResult Get(GetRequest request, Expression<Func<TEntity, bool>> filter = null)
+        public TaskResult Get(int id, Expression<Func<TEntity, bool>> filter = null)
         {
             try
             {
-                var result = _repository.GetById(request.Id);
+                var result = _repository.GetById(id);
                 if (result != null)
                     return DataResult<TEntity>.Successful(result);
                 return TaskResult.NotFound();
@@ -80,7 +85,7 @@ namespace Acr.Business.Concrete
             }
         }
 
-        public virtual TaskResult AddAndLog(TEntity entity, int userId = 0)
+        public virtual TaskResult Add(TEntity entity, int userId = 0)
         {
             try
             {
@@ -109,16 +114,14 @@ namespace Acr.Business.Concrete
 
                     if (entity is IExtraJsonObject<TExtraObject>)
                     {
-                        Type type = entity.GetType();
-                        PropertyInfo extraObjectProp = type.GetProperty(nameof(IExtraJsonObject<TExtraObject>.ExtraObject));  // Extra Object Prop
-                        var extraObjectValue = extraObjectProp.GetValue(entity); // Extra Obj Value
-
-                        PropertyInfo jsonStringProp = type.GetProperty(nameof(IExtraJsonObject<TExtraObject>.JsonString)); // Json String Prop
-                        jsonStringProp.SetValue(entity, Extensions.Serialize(extraObjectValue));
+                        var entityWithObject = entity as IExtraJsonObject<TExtraObject>;
+                        entityWithObject.JsonValue = Extensions.Serialize(entityWithObject.ExtraObject);
+                        _repository.Add((TEntity)entityWithObject);
                     }
-                    _repository.Add(entity);
-                    CreateLog(entity, TransactionType.Create, userId); // logla
+                    else
+                        _repository.Add(entity);
 
+                    CreateLog(entity, TransactionType.Create, userId); // logla
                     scope.Complete();
                     return DataResult<int>.Successful(entity.Id);
                 }
@@ -129,9 +132,9 @@ namespace Acr.Business.Concrete
             }
         }
         #endregion
-        
+
         #region Update
-        public TaskResult Update(TEntity entity)
+        public virtual TaskResult Update(TEntity entity)
         {
             try
             {
@@ -144,7 +147,7 @@ namespace Acr.Business.Concrete
             }
         }
 
-        public virtual TaskResult UpdateAndLog(TEntity entity, int userId = 0)
+        public virtual TaskResult Update(TEntity entity, int userId = 0)
         {
             try
             {
@@ -152,7 +155,7 @@ namespace Acr.Business.Concrete
                 {
                     _repository.Update(entity);
                     CreateLog(entity, TransactionType.Update, userId);
-                    
+
                     scope.Complete();
                     return TaskResult.Successful();
                 }
@@ -162,7 +165,7 @@ namespace Acr.Business.Concrete
                 return TaskResult.Fail(message: ex.ToString());
             }
         }
-        
+
         public virtual TaskResult UpdateWithObject<TExtraObject>(TEntity entity, int userId = 0)
         {
             try
@@ -171,17 +174,15 @@ namespace Acr.Business.Concrete
                 {
                     if (entity is IExtraJsonObject<TExtraObject>)
                     {
-                        Type type = entity.GetType();
-                        PropertyInfo extraObjectProp = type.GetProperty(nameof(IExtraJsonObject<TExtraObject>.ExtraObject));  // Extra Object Prop
-                        var extraObjectValue = extraObjectProp.GetValue(entity); // Extra Obj Value
-
-                        PropertyInfo jsonStringProp = type.GetProperty(nameof(IExtraJsonObject<TExtraObject>.JsonString)); // Json String Prop
-                        jsonStringProp.SetValue(entity, Extensions.Serialize(extraObjectValue));
+                        var entityWithObject = entity as IExtraJsonObject<TExtraObject>;
+                        entityWithObject.JsonValue = Extensions.Serialize(entityWithObject.ExtraObject);
+                        _repository.Update((TEntity)entityWithObject);
                     }
-
-                    _repository.Update(entity);
+                    else
+                    {
+                        _repository.Update(entity);
+                    }
                     CreateLog(entity, TransactionType.Update, userId); // logla
-
                     scope.Complete();
                     return TaskResult.Successful();
                 }
@@ -194,11 +195,11 @@ namespace Acr.Business.Concrete
         #endregion
 
         #region Delete
-        public TaskResult Delete(GetRequest request)
+        public TaskResult Delete(int id)
         {
             try
             {
-                var entity = _repository.GetById(request.Id);
+                var entity = _repository.GetById(id);
                 if (entity != null)
                 {
                     _repository.Delete(entity);
@@ -212,18 +213,16 @@ namespace Acr.Business.Concrete
             }
         }
 
-        public TaskResult DeleteSoft(GetRequest request)
+        public TaskResult DeleteSoft(int id)
         {
             try
             {
-                var entity = _repository.GetById(request.Id);
+                var entity = _repository.GetById(id);
                 if (entity != null)
                 {
                     if (entity is ISoftDeletable)
                     {
-                        Type entityType = entity.GetType();
-                        PropertyInfo propertyInfo = entityType.GetProperty(nameof(ISoftDeletable.IsDeleted));
-                        propertyInfo.SetValue(entity, true);
+                        (entity as ISoftDeletable).IsDeleted = true;
                         _repository.Update(entity);
                         return TaskResult.Successful();
                     }
@@ -237,25 +236,24 @@ namespace Acr.Business.Concrete
             }
         }
 
-        public TaskResult DeleteAndLog(GetRequest request, int userId)
+        public virtual TaskResult Delete(int id, int userId)
         {
             try
             {
                 using (TransactionScope scope = new TransactionScope())
                 {
-                    var entity = _repository.GetById(request.Id);
+                    var entity = _repository.GetById(id);
                     if (entity != null)
                     {
                         if (entity is ISoftDeletable)
                         {
-                            Type type = entity.GetType();
-                            PropertyInfo isDeletedProp = type.GetProperty(nameof(ISoftDeletable.IsDeleted));
-                            isDeletedProp.SetValue(entity, true);
+                            (entity as ISoftDeletable).IsDeleted = true;
                             _repository.Update(entity);
                         }
                         else
+                        {
                             _repository.Delete(entity);
-
+                        }
                         CreateLog(entity, TransactionType.Delete, userId);
                         return TaskResult.Successful();
                     };
@@ -270,11 +268,11 @@ namespace Acr.Business.Concrete
         #endregion
 
         #region ViewRepository
-        public TaskResult GetFromViewById<TView>(GetRequest request) where TView : BaseView
+        public TaskResult GetFromViewById<TView>(int id) where TView : BaseView
         {
             try
             {
-                var result = _viewRepository.GetView<TView>(request.Id);
+                var result = _viewRepository.GetView<TView>(id);
                 if (result == null)
                     return TaskResult.NotFound();
                 return DataResult<TView>.Successful(result);
@@ -309,11 +307,11 @@ namespace Acr.Business.Concrete
         #endregion
 
         #region Get/GetAll With Extra Objects
-        public virtual TaskResult GetWithObject<TExtraObject>(GetRequest request)
+        public virtual TaskResult GetWithObject<TExtraObject>(int id)
         {
             try
             {
-                var entity = _repository.GetById(request.Id);
+                var entity = _repository.GetById(id);
                 if (entity == null)
                     return TaskResult.NotFound();
                 else
@@ -321,7 +319,7 @@ namespace Acr.Business.Concrete
                     if (entity is IExtraJsonObject<TExtraObject>)
                     {
                         Type entityType = entity.GetType();
-                        PropertyInfo objProperty = entityType.GetProperty(nameof(IExtraJsonObject<TExtraObject>.JsonString));
+                        PropertyInfo objProperty = entityType.GetProperty(nameof(IExtraJsonObject<TExtraObject>.JsonValue));
                         var jsonString = objProperty.GetValue(entity).ToString();
 
                         PropertyInfo jsonObj = entityType.GetProperty(nameof(IExtraJsonObject<TExtraObject>.ExtraObject));
@@ -348,7 +346,7 @@ namespace Acr.Business.Concrete
                         if (item is IExtraJsonObject<TExtraObject>)
                         {
                             Type entityType = item.GetType();
-                            PropertyInfo objProperty = entityType.GetProperty(nameof(IExtraJsonObject<TExtraObject>.JsonString));
+                            PropertyInfo objProperty = entityType.GetProperty(nameof(IExtraJsonObject<TExtraObject>.JsonValue));
                             var jsonString = objProperty.GetValue(item).ToString();
 
                             PropertyInfo jsonObj = entityType.GetProperty(nameof(IExtraJsonObject<TExtraObject>.ExtraObject));

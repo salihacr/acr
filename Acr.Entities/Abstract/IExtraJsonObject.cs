@@ -4,7 +4,7 @@ namespace Acr.Entities.Abstract
 {
     public interface IExtraJsonObject<TObject> // where TObject : BaseExtraObject
     {
-        string JsonString { get; set; }
+        string JsonValue { get; set; }
 
         [NotMapped]
         TObject ExtraObject { get; set; }

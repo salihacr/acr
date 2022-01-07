@@ -25,6 +25,7 @@ namespace Acr.DataAccess
         }
 
         #region Entities | Tablolar
+        public DbSet<User> User { get; set; }
         public DbSet<Log> Log { get; set; }
         public DbSet<TestTable> TestTable { get; set; }
         public DbSet<TestJsonTable> TestJsonTable { get; set; }

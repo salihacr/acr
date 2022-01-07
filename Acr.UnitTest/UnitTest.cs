@@ -7,10 +7,39 @@ using Acr.Core.Models.Request;
 using Acr.DataAccess.Concrete;
 using Acr.Entities.Concrete;
 using Acr.Entities.Views;
-
+using System.Linq.Expressions;
 
 namespace Acr.UnitTest
 {
+
+    public class RepositoryTest
+    {
+        [TestMethod]
+        public void GetList_Test()
+        {
+            try
+            {
+                var repository = new BaseRepository<TestTable>(new DataAccess.AppDbContext());
+
+                //repository.GetList(
+                //    pageNo: 1,
+                //    pageSize: 50,
+                //    predicate: (x => x.Name.Contains("x")),
+                //    orderBy: (x=>x.)),
+                //    include:null
+
+                //    );
+
+
+            }
+            catch (System.Exception ex)
+            {
+                Assert.IsTrue(false);
+                Debug.WriteLine(ex.ToString());
+            }
+        }
+    }
+
     [TestClass]
     public class UnitTest
     {
@@ -40,13 +69,11 @@ namespace Acr.UnitTest
                     Debug.WriteLine(updateResult.Success + ", " + updateResult.Message);
                     Assert.AreEqual(updateResult.Success, true);
 
-                    var getRequest = new GetRequest { Id = entity.Id };
-                    var getResult = testManager.GetFromViewById<ViewTestTable>(getRequest);
+                    var getResult = testManager.GetFromViewById<ViewTestTable>(entity.Id);
                     Assert.IsTrue(getResult.Success);
                     Debug.WriteLine(getResult.Success + ", " + getResult.Message);
 
-                    var deleteRequest = new GetRequest { Id = entity.Id };
-                    var deleteResult = testManager.Delete(deleteRequest);
+                    var deleteResult = testManager.Delete(entity.Id);
                     Debug.WriteLine(deleteResult.Success + " " + deleteResult.Message);
                     Assert.AreEqual(deleteResult.Success, true);
 
@@ -91,8 +118,7 @@ namespace Acr.UnitTest
                     Debug.WriteLine(createResult.Success + " " + createResult.Message);
                     Assert.AreEqual(createResult.Success, true);
 
-                    var getRequest = new GetRequest { Id = entity.Id };
-                    var getResult = testJsonManager.GetWithObject<TestJson>(getRequest);
+                    var getResult = testJsonManager.GetWithObject<TestJson>(entity.Id);
                     Assert.IsTrue(getResult.Success);
 
                     entity.Name = "xxxx";
@@ -101,13 +127,11 @@ namespace Acr.UnitTest
                     Debug.WriteLine(updateResult.Success + ", " + updateResult.Message);
                     Assert.AreEqual(updateResult.Success, true);
 
-                    var getRequest2 = new GetRequest { Id = entity.Id };
-                    var getResult2 = testJsonManager.GetWithObject<TestJson>(getRequest2);
+                    var getResult2 = testJsonManager.GetWithObject<TestJson>(entity.Id);
                     Assert.IsTrue(getResult2.Success);
                     Debug.WriteLine(getResult2.Success + ", " + getResult2.Message);
 
-                    var deleteRequest = new GetRequest { Id = entity.Id };
-                    var deleteResult = testJsonManager.Delete(deleteRequest);
+                    var deleteResult = testJsonManager.Delete(entity.Id);
                     Debug.WriteLine(deleteResult.Success + " " + deleteResult.Message);
                     Assert.AreEqual(deleteResult.Success, true);
 

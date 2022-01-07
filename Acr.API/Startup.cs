@@ -47,6 +47,10 @@ namespace Acr.API
             services.AddScoped(typeof(IManager<>), typeof(BaseManager<>));
 
             services.AddScoped<ILogRepository, LogRepository>();
+            services.AddScoped<IViewRepository, ViewRepository>();
+
+
+            services.AddScoped<IAuthManager, AuthManager>();
             #endregion
         }
 

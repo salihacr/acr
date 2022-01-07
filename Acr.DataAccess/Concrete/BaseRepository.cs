@@ -2,9 +2,11 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
+using Acr.Core.Models.Response;
 using Acr.DataAccess.Abstract;
 using Acr.Entities.Abstract;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Query;
 
 namespace Acr.DataAccess.Concrete
 {
@@ -36,7 +38,7 @@ namespace Acr.DataAccess.Concrete
         }
         public TEntity Get(Expression<Func<TEntity, bool>> filter)
         {
-            return _dbSet.Find(filter);
+            return _dbSet.FirstOrDefault(filter);
         }
 
         public List<TEntity> GetAll(int pageNo = 1, int pageSize = 50, Expression<Func<TEntity, bool>> filter = null)
@@ -47,6 +49,57 @@ namespace Acr.DataAccess.Concrete
                 return _dbSet.Where(filter).Skip((pageNo - 1) * pageSize).Take(pageSize).AsNoTracking().ToList();
             else
                 return _dbSet.Skip((pageNo - 1) * pageSize).Take(pageSize).AsNoTracking().ToList();
+        }
+        public ListModel<TEntity> GetList(
+            int pageNo = 1,
+            int pageSize = 50,
+            Expression<Func<TEntity, bool>> predicate = null,
+            Func<IQueryable<TEntity>, IOrderedQueryable<TEntity>> orderBy = null,
+            Func<IQueryable<TEntity>, IIncludableQueryable<TEntity, object>> include = null
+            )
+        {
+            IQueryable<TEntity> query = _dbSet;
+            query.AsNoTracking();
+
+            if (include != null) query = include(query);
+            if (predicate != null) query = query.Where(predicate);
+
+            var data = orderBy != null
+                ? orderBy(query).Skip((pageNo - 1) * pageSize).Take(pageSize).ToList()
+                : query.Skip((pageNo - 1) * pageSize).Take(pageSize).ToList();
+
+            int totalRowCount = query.Count();
+            double totalPage = (double)totalRowCount / pageSize;
+            totalPage = Math.Ceiling(totalPage);
+
+            var model = new ListModel<TEntity>
+            {
+                List = data,
+                TotalPage = (int)totalPage,
+                TotalRowCount = totalRowCount
+            };
+            return model;
+        }
+
+        public List<TResult> GetList<TResult>(
+            int pageNo,
+            int pageSize,
+            Expression<Func<TEntity, TResult>> selector,
+            Expression<Func<TEntity, bool>> predicate = null, Func<IQueryable<TEntity>,
+            IOrderedQueryable<TEntity>> orderBy = null,
+            Func<IQueryable<TEntity>, IIncludableQueryable<TEntity, object>> include = null,
+            bool enableTracking = true) where TResult : class
+        {
+            IQueryable<TEntity> query = _dbSet;
+            if (!enableTracking) query = query.AsNoTracking();
+
+            if (include != null) query = include(query);
+
+            if (predicate != null) query = query.Where(predicate);
+
+            return orderBy != null
+                ? orderBy(query).Select(selector).Skip((pageNo - 1) * pageSize).Take(pageSize).ToList()
+                : query.Select(selector).Skip((pageNo - 1) * pageSize).Take(pageSize).ToList();
         }
 
         public void Update(TEntity entity)
